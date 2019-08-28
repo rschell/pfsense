@@ -3,7 +3,9 @@
 # builder_common.sh
 #
 # part of pfSense (https://www.pfsense.org)
-# Copyright (c) 2004-2018 Rubicon Communications, LLC (Netgate)
+# Copyright (c) 2004-2013 BSD Perimeter
+# Copyright (c) 2013-2016 Electric Sheep Fencing
+# Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
 # All rights reserved.
 #
 # FreeSBIE portions of the code
@@ -1332,6 +1334,9 @@ pkg_repo_rsync() {
 
 	# Sanitize path
 	_repo_path=$(realpath ${_repo_path_param})
+
+	# Trigger file to be used to sync files to S3
+	touch ${_repo_path}/.sync_to_s3
 
 	local _repo_dir=$(dirname ${_repo_path})
 	local _repo_base=$(basename ${_repo_path})
