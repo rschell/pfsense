@@ -3,7 +3,9 @@
  * status.php
  *
  * part of pfSense (https://www.pfsense.org)
- * Copyright (c) 2004-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2013 BSD Perimeter
+ * Copyright (c) 2013-2016 Electric Sheep Fencing
+ * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://neon1.net/m0n0wall)
@@ -62,14 +64,15 @@ $output_file = "/tmp/status_output.tgz";
 $filtered_tags = array(
 	'accountkey', 'authorizedkeys', 'auth_pass', 'auth_user', 'bcrypt-hash',
 	'crypto_password', 'crypto_password2', 'dns_nsupdatensupdate_key',
-	'gold_encryption_password', 'gold_password', 'ipsecpsk', 'ldap_bindpw',
-	'lighttpd_ls_password', 'lighttpd_ls_password', 'md5-hash',
-	'md5password', 'md5sigkey', 'md5sigpass', 'nt-hash', 'passphrase',
-	'password', 'passwordagain', 'pre-shared-key', 'proxypass',
-	'proxy_passwd', 'proxyuser', 'proxy_user', 'prv', 'radius_secret',
-	'redis_password', 'redis_passwordagain', 'rocommunity', 'secret',
-	'shared_key', 'tls', 'varclientpasswordinput', 'varclientsharedsecret',
-	'varsyncpassword', 'varusersmotpinitsecret', 'varusersmotppin'
+	'encryption_password', 'gold_encryption_password', 'gold_password',
+	'ipsecpsk', 'ldap_bindpw', 'lighttpd_ls_password',
+	'lighttpd_ls_password', 'md5-hash', 'md5password', 'md5sigkey',
+	'md5sigpass', 'nt-hash', 'passphrase', 'password', 'passwordagain',
+	'pre-shared-key', 'proxypass', 'proxy_passwd', 'proxyuser',
+	'proxy_user', 'prv', 'radius_secret', 'redis_password',
+	'redis_passwordagain', 'rocommunity', 'secret', 'shared_key', 'tls',
+	'varclientpasswordinput', 'varclientsharedsecret', 'varsyncpassword',
+	'varusersmotpinitsecret', 'varusersmotppin'
 );
 
 if ($_POST['submit'] == "DOWNLOAD" && file_exists($output_file)) {
@@ -367,6 +370,7 @@ defCmdT("OS-Message Buffer (Boot)", "/bin/cat /var/log/dmesg.boot");
 /* OS/Hardware Status */
 defCmdT("OS-sysctl values", "/sbin/sysctl -aq");
 defCmdT("OS-Kernel Environment", "/bin/kenv");
+defCmdT("OS-Kernel Memory Usage", "/usr/local/sbin/kmemusage.sh");
 defCmdT("OS-Installed Packages", "/usr/sbin/pkg info");
 defCmdT("OS-Package Manager Configuration", "/usr/sbin/pkg -vv");
 defCmdT("Hardware-PCI Devices", "/usr/sbin/pciconf -lvb");

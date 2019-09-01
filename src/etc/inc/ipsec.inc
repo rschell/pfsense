@@ -4,7 +4,9 @@
  *
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2008 Shrew Soft Inc.
- * Copyright (c) 2007-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2007-2013 BSD Perimeter
+ * Copyright (c) 2013-2016 Electric Sheep Fencing
+ * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -899,6 +901,34 @@ function ipsec_vti($ph1ent, $returnaddresses = false) {
 		}
 	}
 	return ($returnaddresses) ? $vtisubnet_spec : $is_vti;
+}
+
+/* Called when IPsec is reloaded through rc.newipsecdns and similar, gives
+ * packages an opportunity to execute custom code when IPsec reloads.
+ */
+function ipsec_reload_package_hook() {
+	global $g, $config;
+
+	init_config_arr(array('installedpackages', 'package'));
+	foreach ($config['installedpackages']['package'] as $package) {
+		if (!file_exists("/usr/local/pkg/" . $package['configurationfile'])) {
+			continue;
+		}
+
+		$pkg_config = parse_xml_config_pkg("/usr/local/pkg/" . $package['configurationfile'], 'packagegui');
+		if (!empty($pkg_config['include_file']) &&
+		    file_exists($pkg_config['include_file'])) {
+			require_once($pkg_config['include_file']);
+		}
+		if (empty($pkg_config['ipsec_reload_function'])) {
+			continue;
+		}
+		$pkg_ipsec_reload = $pkg_config['ipsec_reload_function'];
+		if (!function_exists($pkg_ipsec_reload)) {
+			continue;
+		}
+		$pkg_ipsec_reload();
+	}
 }
 
 ?>
