@@ -71,7 +71,7 @@ $g = array(
 	"disablecrashreporter" => false,
 	"crashreporterurl" => "https://crashreporter.pfsense.org/crash_reporter.php",
 	"debug" => false,
-	"latest_config" => "19.4",
+	"latest_config" => "19.6",
 	"minimum_ram_warning" => "101",
 	"minimum_ram_warning_text" => "128 MB",
 	"wan_interface_name" => "wan",
@@ -251,6 +251,41 @@ $vlanprio = array(
 	"vo" => "Voice (VO, 5)",
 	"ic" => "Internetwork Control (IC, 6)",
 	"nc" => "Network Control (NC, 7)"
+);
+
+global $system_log_files;
+$system_log_files = array(
+	"system", "filter", "dhcpd", "vpn", "poes", "l2tps", "openvpn",
+	"portalauth", "ipsec", "ppp", "wireless", "nginx", "ntpd", "gateways",
+	"resolver", "routing");
+
+global $system_log_compression_types;
+$system_log_compression_types = array(
+	'bzip2' => array(
+			'flag' => 'J',
+			'cat' => '/usr/bin/bzcat -f',
+			'ext' => 'bz2',
+		),
+	'gzip' => array(
+			'flag' => 'Z',
+			'cat' => '/usr/bin/zcat -f',
+			'ext' => 'gz',
+		),
+	'xz' => array(
+			'flag' => 'X',
+			'cat' => '/usr/bin/xzcat -f',
+			'ext' => 'xz',
+		),
+	'zstd' => array(
+			'flag' => 'Y',
+			'cat' => '/usr/bin/zstdcat -f',
+			'ext' => 'zst',
+		),
+	'none' => array(
+			'flag' => '',
+			'cat' => '/usr/bin/cat',
+			'ext' => '',
+		),
 );
 
 ?>

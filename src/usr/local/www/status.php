@@ -347,23 +347,35 @@ if (file_exists("/var/etc/filterdns.conf")) {
 }
 
 /* Logs */
-defCmdT("Log-System-Last 1000 entries", "/usr/local/sbin/clog /var/log/system.log 2>&1 | tail -n 1000");
-defCmdT("Log-DHCP-Last 1000 entries", "/usr/local/sbin/clog /var/log/dhcpd.log 2>&1 | tail -n 1000");
-defCmdT("Log-Filter-Last 500 entries", "/usr/local/sbin/clog /var/log/filter.log 2>&1 | tail -n 500");
-defCmdT("Log-Gateways-Last 1000 entries", "/usr/local/sbin/clog /var/log/gateways.log 2>&1 | tail -n 1000");
-defCmdT("Log-IPsec-Last 1000 entries", "/usr/local/sbin/clog /var/log/ipsec.log 2>&1 | tail -n 1000");
-defCmdT("Log-L2TP-Last 1000 entries", "/usr/local/sbin/clog /var/log/l2tps.log 2>&1 | tail -n 1000");
-defCmdT("Log-NTP-Last 1000 entries", "/usr/local/sbin/clog /var/log/ntpd.log 2>&1 | tail -n 1000");
-defCmdT("Log-OpenVPN-Last 1000 entries", "/usr/local/sbin/clog /var/log/openvpn.log 2>&1 | tail -n 1000");
-defCmdT("Log-Captive Portal Authentication-Last 1000 entries", "/usr/local/sbin/clog /var/log/portalauth.log 2>&1 | tail -n 1000");
-defCmdT("Log-PPP-Last 1000 entries", "/usr/local/sbin/clog /var/log/ppp.log 2>&1 | tail -n 1000");
-defCmdT("Log-PPPoE Server-Last 1000 entries", "/usr/local/sbin/clog /var/log/poes.log 2>&1 | tail -n 1000");
-defCmdT("Log-DNS-Last 1000 entries", "/usr/local/sbin/clog /var/log/resolver.log 2>&1 | tail -n 1000");
-defCmdT("Log-Routing-Last 1000 entries", "/usr/local/sbin/clog /var/log/routing.log 2>&1 | tail -n 1000");
-defCmdT("Log-Wireless-Last 1000 entries", "/usr/local/sbin/clog /var/log/wireless.log 2>&1 | tail -n 1000");
-if (file_exists("/tmp/PHP_errors.log")) {
-	defCmdT("Log-PHP Errors", "/bin/cat /tmp/PHP_errors.log");
+function status_add_log($name, $logfile, $number = 1000) {
+	if (!file_exists($logfile)) {
+		return;
+	}
+	$descr = "Log-{$name}";
+	$tail = '';
+	if ($number != "all") {
+		$descr .= "-Last {$number} entries";
+		$tail = ' | tail -n ' . escapeshellarg($number);
+	}
+	defCmdT($descr, system_log_get_cat() . ' ' . sort_related_log_files($logfile, true, true) . $tail);
 }
+
+status_add_log("System", '/var/log/system.log');
+status_add_log("DHCP", '/var/log/dhcpd.log');
+status_add_log("Filter", '/var/log/filter.log');
+status_add_log("Gateways", '/var/log/gateways.log');
+status_add_log("IPsec", '/var/log/ipsec.log');
+status_add_log("L2TP", '/var/log/l2tps.log');
+status_add_log("NTP", '/var/log/ntpd.log');
+status_add_log("OpenVPN", '/var/log/openvpn.log');
+status_add_log("Captive Portal Authentication", '/var/log/portalauth.log');
+status_add_log("PPP", '/var/log/ppp.log');
+status_add_log("PPPoE Server", '/var/log/poes.log');
+status_add_log("DNS", '/var/log/resolver.log');
+status_add_log("Routing", '/var/log/routing.log');
+status_add_log("Wireless", '/var/log/wireless.log');
+status_add_log("PHP Errors", '/tmp/PHP_errors.log', 'all');
+
 defCmdT("OS-Message Buffer", "/sbin/dmesg -a");
 defCmdT("OS-Message Buffer (Boot)", "/bin/cat /var/log/dmesg.boot");
 

@@ -1323,6 +1323,7 @@ finish() {
 pkg_repo_rsync() {
 	local _repo_path_param="${1}"
 	local _ignore_final_rsync="${2}"
+	local _aws_sync_cmd="aws s3 sync --quiet --exclude '.real*/*' --exclude '.latest/*'"
 
 	if [ -z "${_repo_path_param}" -o ! -d "${_repo_path_param}" ]; then
 		return
@@ -1334,9 +1335,6 @@ pkg_repo_rsync() {
 
 	# Sanitize path
 	_repo_path=$(realpath ${_repo_path_param})
-
-	# Trigger file to be used to sync files to S3
-	touch ${_repo_path}/.sync_to_s3
 
 	local _repo_dir=$(dirname ${_repo_path})
 	local _repo_base=$(basename ${_repo_path})
@@ -1448,6 +1446,36 @@ pkg_repo_rsync() {
 					echo ">>> ERROR: An error occurred sending repo to final hostname"
 					print_error_pfS
 				fi
+
+				if [ -z "${PKG_FINAL_S3_PATH}" ]; then
+					continue
+				fi
+
+				local _repos=$(ssh -p ${PKG_FINAL_RSYNC_SSH_PORT} \
+				    ${PKG_FINAL_RSYNC_USERNAME}@${_pkg_final_rsync_hostname} \
+				    "ls -1d ${PKG_FINAL_RSYNC_DESTDIR}/${_repo_base%%-core}*")
+				for _repo in ${_repos}; do
+					echo -n ">>> Sending updated packages to AWS ${PKG_FINAL_S3_PATH}... " | tee -a ${_logfile}
+					if script -aq ${_logfile} ssh -p ${PKG_FINAL_RSYNC_SSH_PORT} \
+					    ${PKG_FINAL_RSYNC_USERNAME}@${_pkg_final_rsync_hostname} \
+					    "${_aws_sync_cmd} ${_repo} ${PKG_FINAL_S3_PATH}/$(basename ${_repo})"; then
+						echo "Done!" | tee -a ${_logfile}
+					else
+						echo "Failed!" | tee -a ${_logfile}
+						echo ">>> ERROR: An error occurred sending files to AWS S3"
+						print_error_pfS
+					fi
+					echo -n ">>> Cleaning up packages at AWS ${PKG_FINAL_S3_PATH}... " | tee -a ${_logfile}
+					if script -aq ${_logfile} ssh -p ${PKG_FINAL_RSYNC_SSH_PORT} \
+					    ${PKG_FINAL_RSYNC_USERNAME}@${_pkg_final_rsync_hostname} \
+					    "${_aws_sync_cmd} --delete ${_repo} ${PKG_FINAL_S3_PATH}/$(basename ${_repo})"; then
+						echo "Done!" | tee -a ${_logfile}
+					else
+						echo "Failed!" | tee -a ${_logfile}
+						echo ">>> ERROR: An error occurred sending files to AWS S3"
+						print_error_pfS
+					fi
+				done
 			done
 		fi
 	done

@@ -21,6 +21,8 @@
  * limitations under the License.
  */
 
+require_once('system.inc');
+
 $leases_file = "/var/dhcpd/var/db/dhcpd6.leases";
 if (!file_exists($leases_file)) {
 	exit(1);
@@ -105,11 +107,11 @@ if (count($routes) > 0) {
 	}
 }
 
-/* get clog from dhcpd */
+/* get log from dhcpd */
 $dhcpdlogfile = "/var/log/dhcpd.log";
 $expires = array();
 if (file_exists($dhcpdlogfile)) {
-	$fd = popen("clog $dhcpdlogfile", 'r');
+	$fd = popen(system_log_get_cat() . ' ' . sort_related_log_files($dhcpdlogfile, true, true), 'r');
 	while (($line = fgets($fd)) !== false) {
 		//echo $line;
 		if (preg_match("/releases[ ]+prefix[ ]+([0-9a-f:]+\/[0-9]+)/i", $line, $expire)) {
