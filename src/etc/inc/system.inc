@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally part of m0n0wall (http://m0n0.ch/wall)
@@ -202,10 +202,11 @@ function system_resolvconf_generate($dynupdate = false) {
 				route_add_or_change("-host {$inet6}{$dnsserver} {$gatewayip}");
 			} else {
 				/* Remove old route when disable gw */
-				mwexec("/sbin/route -q delete -host {$inet6}{$dnsserver}");
+				$gatewayip = exec("/sbin/route -n get {$dnsserver} | /usr/bin/awk '/gateway:/ {print $2;}'");
+				mwexec("/sbin/route -q delete -host {$inet6}{$dnsserver} " . escapeshellarg($gatewayip));
 				if (isset($config['system']['route-debug'])) {
 					$mt = microtime();
-					log_error("ROUTING debug: $mt - route delete -host {$inet6}{$dnsserver}");
+					log_error("ROUTING debug: $mt - route delete -host {$inet6}{$dnsserver} {$gatewayip}");
 				}
 			}
 		}
@@ -938,20 +939,20 @@ function system_staticroutes_configure($interface = "", $update_dns = false) {
 				if (in_array($ip, $ips)) {
 					continue;
 				}
-				mwexec("/sbin/route delete " . escapeshellarg($ip), true);
+				mwexec("/sbin/route delete " . escapeshellarg($ip) . " " . escapeshellarg($gatewayip), true);
 				if (isset($config['system']['route-debug'])) {
 					$mt = microtime();
-					log_error("ROUTING debug: $mt - route delete $ip ");
+					log_error("ROUTING debug: $mt - route delete $ip $gatewayip ");
 				}
 			}
 
 			if (isset($rtent['disabled'])) {
 				/* XXX: This can break things by deleting routes that shouldn't be deleted - OpenVPN, dynamic routing scenarios, etc. redmine #3709 */
 				foreach ($ips as $ip) {
-					mwexec("/sbin/route delete " . escapeshellarg($ip), true);
+					mwexec("/sbin/route delete " . escapeshellarg($ip) . " " . escapeshellarg($gatewayip), true);
 					if (isset($config['system']['route-debug'])) {
 						$mt = microtime();
-						log_error("ROUTING debug: $mt - route delete $ip ");
+						log_error("ROUTING debug: $mt - route delete $ip $gatewayip ");
 					}
 				}
 				continue;
@@ -1032,7 +1033,7 @@ function system_webgui_create_certificate() {
 	$a_ca = &$config['ca'];
 	init_config_arr(array('cert'));
 	$a_cert = &$config['cert'];
-	log_error(gettext("Creating SSL Certificate for this host"));
+	log_error(gettext("Creating SSL/TLS Certificate for this host"));
 
 	$cert = array();
 	$cert['refid'] = uniqid();
@@ -1055,7 +1056,7 @@ function system_webgui_create_certificate() {
 
 	$a_cert[] = $cert;
 	$config['system']['webgui']['ssl-certref'] = $cert['refid'];
-	write_config(sprintf(gettext("Generated new self-signed HTTPS certificate (%s)"), $cert['refid']));
+	write_config(sprintf(gettext("Generated new self-signed SSL/TLS certificate for HTTPS (%s)"), $cert['refid']));
 	return $cert;
 }
 
@@ -1158,6 +1159,10 @@ function get_dns_nameservers($add_v6_brackets = false) {
 				$dns_nameservers[] = $nameserver;
 			}
 		}
+	} else {
+		/* If override is disallowed, ignore the dynamic NS entries
+		 * https://redmine.pfsense.org/issues/9963 */
+		$ns = array();
 	}
 	if (is_array($syscfg['dnsserver'])) {
 		foreach ($syscfg['dnsserver'] as $sys_dnsserver) {
@@ -1306,7 +1311,7 @@ EOD;
 		} else {
 			$nginx_config .= "\t\tssl_protocols   TLSv1.2 TLSv1.3;\n";
 		}
-		$nginx_config .= "\t\tssl_ciphers \"EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH\";\n";
+		$nginx_config .= "\t\tssl_ciphers \"EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305\";\n";
 		$nginx_config .= "\t\tssl_prefer_server_ciphers       on;\n";
 		if ($captive_portal === false && $hsts !== false) {
 			$nginx_config .= "\t\tadd_header Strict-Transport-Security \"max-age=31536000\";\n";

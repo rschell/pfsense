@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2008-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2008 Shrew Soft Inc. All rights reserved.
  * All rights reserved.
  *
@@ -1319,7 +1319,7 @@ function crl_contains_cert($crl, $cert) {
 
 	/* Find the issuer of this CRL */
 	$ca = lookup_ca($crl['caref']);
-	$crlissuer = is_array($cert) ? cert_get_issuer($ca['crt']) : null;
+	$crlissuer = is_array($cert) ? cert_get_subject($ca['crt']) : null;
 	$serial = crl_get_entry_serial($cert);
 
 	/* Skip issuer match when sarching by serial instead of certificate */
@@ -1521,6 +1521,7 @@ $cert_strict_values = array(
 					'mdc2', 'RSA-MDC2', 'sha1', 'RSA-SHA1',
 					'RSA-SHA1-2'),
 	'min_private_key_bits' => 2048,
+	'ec_curve' => 'prime256v1',
 );
 
 /****f* certs/cert_renew
@@ -1543,7 +1544,7 @@ $cert_strict_values = array(
  ******/
 
 function cert_renew(& $cert, $reusekey = true, $strictsecurity = false) {
-	global $cert_strict_values;
+	global $cert_strict_values, $cert_curve_compatible;
 
 	/* If there is no certificate or private key string, this entry is either
 	 *  invalid or cannot be renewed by this function. */
@@ -1632,15 +1633,6 @@ function cert_renew(& $cert, $reusekey = true, $strictsecurity = false) {
 		$digest_alg = 'sha256';
 	}
 
-	/* If we are enforcing strict security, then ensure the private key size
-	 * is at least 2048 bits. */
-	$private_key_bits = $key_details['bits'];
-	if ($strictsecurity &&
-	    ($private_key_bits < $cert_strict_values['min_private_key_bits'])) {
-		$private_key_bits = $cert_strict_values['min_private_key_bits'];
-		$reusekey = false;
-	}
-
 	/* Validate key type, assume RSA if it cannot be read. */
 	if (is_array($key_details) && array_key_exists('type', $key_details)) {
 		$private_key_type = $key_details['type'];
@@ -1652,13 +1644,29 @@ function cert_renew(& $cert, $reusekey = true, $strictsecurity = false) {
 	$args = array(
 		"x509_extensions" => $cert_type,
 		"digest_alg" => $digest_alg,
-		"private_key_bits" => (int)$private_key_bits,
 		"private_key_type" => $private_key_type,
 		"encrypt_key" => false);
 
-	/* Adjust argumnents to account for ECDSA keys. */
-	if (($key_details['type'] ==  OPENSSL_KEYTYPE_EC) &&
-	    (!empty($key_details['ec']['curve_name']))) {
+	/* If we are enforcing strict security, then ensure the private key size
+	 * is at least 2048 bits or NIST P-256 elliptic curve*/
+	$private_key_bits = $key_details['bits'];
+	if ($strictsecurity) {
+		if (($key_details['type'] == OPENSSL_KEYTYPE_RSA) &&
+		    ($private_key_bits < $cert_strict_values['min_private_key_bits'])) {
+			$private_key_bits = $cert_strict_values['min_private_key_bits'];
+			$reusekey = false;
+		} else if (!in_array($key_details['ec']['curve_name'], $curve_compatible_list)) {
+			$ec_curve = $cert_strict_values['ec_curve'];
+			$reusekey = false;
+		}
+	}
+
+	/* Set key parameters. */
+	if ($key_details['type'] ==  OPENSSL_KEYTYPE_RSA) {
+		$args['private_key_bits'] = (int)$private_key_bits;
+	} else if ($ec_curve) {
+		$args['curve_name'] = $ec_curve;
+	} else {
 		$args['curve_name'] = $key_details['ec']['curve_name'];
 	}
 
@@ -1776,7 +1784,7 @@ function cert_get_all_services($refid) {
 	 * needs a bump. */
 	init_config_arr(array('ipsec', 'phase1'));
 	foreach ($config['ipsec']['phase1'] as $ipsec) {
-		if (($ipsec['authentication_method'] == 'rsasig') &&
+		if (($ipsec['authentication_method'] == 'cert') &&
 		    ($ipsec['certref'] == $refid)) {
 			$services['services'][] = array('name' => 'ipsec');
 			/* Stop after finding one, no need to search for more. */
@@ -1858,7 +1866,7 @@ function ca_get_all_services($refid) {
 		}
 	}
 	foreach ($config['ipsec']['phase1'] as $ipsec) {
-		if (($ipsec['authentication_method'] == 'rsasig') &&
+		if (($ipsec['authentication_method'] == 'cert') &&
 		    ($ipsec['caref'] == $refid)) {
 			$services['services'][] = array('name' => 'ipsec');
 			break;
@@ -2182,10 +2190,19 @@ function cert_print_infoblock($cert) {
 	$certextinfo .= "<span class=\"text-{$lrclass}\">{$expstring}</span>";
 	$certextinfo .= '<br/>';
 
-	/* CA Trust store presence */
-	$certextinfo .= '<b>' . gettext("Trust Store: ") . '</b> ';
-	$certextinfo .= (isset($cert['trust']) && ($cert['trust'] == "enabled")) ? gettext('Included') : gettext('Excluded');
-	$certextinfo .= '<br/>';
+	if ($purpose['ca'] == 'Yes') {
+		/* CA Trust store presence */
+		$certextinfo .= '<b>' . gettext("Trust Store: ") . '</b> ';
+		$certextinfo .= (isset($cert['trust']) && ($cert['trust'] == "enabled")) ? gettext('Included') : gettext('Excluded');
+		$certextinfo .= '<br/>';
+
+		if (!empty($cert['prv'])) {
+			/* CA Next/Randomize Serial */
+			$certextinfo .= '<b>' . gettext("Next Serial: ") . '</b> ';
+			$certextinfo .= (isset($cert['randomserial']) && ($cert['randomserial'] == "enabled")) ? gettext('Randomized') : $cert['serial'];
+			$certextinfo .= '<br/>';
+		}
+	}
 
 	/* Output the infoblock */
 	if (!empty($certextinfo)) { ?>
@@ -2278,18 +2295,84 @@ function ca_setup_trust_store() {
 			continue;
 		}
 
-		/* Decode the certificate contents */
-		$cert_contents = base64_decode($ca['crt']);
-		/* Get hash value to use for filename */
-		$cert_details = openssl_x509_parse($cert_contents);
-		$ca_filename = "{$trust_store_directory}/{$cert_details['hash']}.0";
-
-		/* Write CA to trust store and ensure it has correct permissions. */
-		file_put_contents($ca_filename, $cert_contents);
-		chmod($ca_filename, 0644);
-		chown($ca_filename, 'root');
-		chgrp($ca_filename, 'wheel');
+		ca_setup_capath($ca, $trust_store_directory);
 	}
+}
+
+/****f* certs/ca_setup_capath
+ * NAME
+ *   ca_setup_capath - Setup CApath structure so that CA chains and related CRLs
+ *                     may be written and validated by the -CApath option in
+ *                     OpenSSL and other compatible validators.
+ * INPUTS
+ *   $ca     : A CA (not a refid) to write
+ *   $basedir: The directory which will contain the CA structure.
+ *   $crl    : A CRL (not a refid) associated with the CA to write.
+ *   $refresh: Refresh CRLs -- When true, perform no cleanup and increment suffix
+ * RESULT
+ *   $basedir is populated with CA and CRL files in a format usable by OpenSSL
+ *   CApath. This has the filenames as the CA hash with the CA named <hash>.0
+ *   and CRLs named <hash>.r0
+ ******/
+
+function ca_setup_capath($ca, $basedir, $crl = "", $refresh = false) {
+	global $config;
+	/* Check for an invalid CA */
+	if (!$ca || !is_array($ca)) {
+		return false;
+	}
+	/* Check for an invalid CRL, but do not consider it fatal if it's wrong */
+	if (!$crl || !is_array($crl) || ($crl['caref'] != $ca['refid'])) {
+		unset($crl);
+	}
+
+	/* Check for an empty base directory, which is invalid */
+	if (empty($basedir)) {
+		return false;
+	}
+
+	/* Ensure that $basedir exists and is a directory */
+	if (!is_dir($basedir)) {
+		/* If it's a file, remove it, otherwise the directory cannot
+		 * be created. */
+		if (file_exists($basedir)) {
+			@unlink_if_exists($basedir);
+		}
+		@safe_mkdir($basedir);
+	}
+	/* Decode the certificate contents */
+	$cert_contents = base64_decode($ca['crt']);
+	/* Get hash value to use for filename */
+	$cert_details = openssl_x509_parse($cert_contents);
+	$fprefix = "{$basedir}/{$cert_details['hash']}";
+
+
+	$ca_filename = "{$fprefix}.0";
+	/* Cleanup old CA/CRL files for this hash */
+	@unlink_if_exists($ca_filename);
+	/* Write CA to base dir and ensure it has correct permissions. */
+	file_put_contents($ca_filename, $cert_contents);
+	chmod($ca_filename, 0644);
+	chown($ca_filename, 'root');
+	chgrp($ca_filename, 'wheel');
+
+	/* If there is a CRL, process it. */
+	if ($crl) {
+		$crl_filename = "{$fprefix}.r";
+		if (!$refresh) {
+			/* Cleanup old CA/CRL files for this hash */
+			@unlink_if_exists("{$crl_filename}*");
+		}
+		/* Find next suffix based on how many existing files there are (start=0) */
+		$crl_filename .= count(glob("{$crl_filename}*"));
+		/* Write CRL to base dir and ensure it has correct permissions. */
+		file_put_contents($crl_filename, base64_decode($crl['text']));
+		chmod($crl_filename, 0644);
+		chown($crl_filename, 'root');
+		chgrp($crl_filename, 'wheel');
+	}
+
+	return true;
 }
 
 /****f* certs/cert_get_pkey_curve
@@ -2329,11 +2412,16 @@ function cert_get_pkey_curve($pkey, $decode = true) {
 
 /* Array containing ECDSA curve names allowed in certain contexts. For instance,
  * HTTPS servers and web browsers only support specific curves in TLSv1.3. */
-global $cert_curve_compatible;
+global $cert_curve_compatible, $curve_compatible_list;
 $cert_curve_compatible = array(
-	'HTTPS' => array('prime256v1', 'secp384r1'), /* Per TLSv1.3 spec and Mozilla compatibility list */
-	'IPsec' => array('prime256v1', 'secp384r1', 'secp521r1') /* Per strongSwan docs/issues */
+	/* HTTPS list per TLSv1.3 spec and Mozilla compatibility list */
+	'HTTPS' => array('prime256v1', 'secp384r1'),
+	/* IPsec/EAP/TLS list per strongSwan docs/issues */
+	'IPsec' => array('prime256v1', 'secp384r1', 'secp521r1'),
+	/* OpenVPN bug limits usable curves, see https://redmine.pfsense.org/issues/9744 */
+	'OpenVPN' => array('prime256v1', 'secp384r1', 'secp521r1'),
 );
+$curve_compatible_list = array_unique(call_user_func_array('array_merge', $cert_curve_compatible));
 
 /****f* certs/cert_build_curve_list
  * NAME
@@ -2405,6 +2493,9 @@ function cert_check_pkey_compatibility($pkey, $consumer) {
  *   $type    : 'ca' for certificate authority entries, 'cert' for certificates.
  *   $consumer: The consumer name used to filter certificates out of the result.
  *                 See the contents of $cert_curve_compatible for details.
+ *   $selectsource: Then true, outputs in a format usable by select_source in
+ *                  packages.
+ *   $addnone: When true, a 'none' choice is added to the list.
  * RESULT
  *   Returns an option list of entries with incompatible entries removed. This
  *   can be used directly in form option selection lists.
@@ -2412,7 +2503,7 @@ function cert_check_pkey_compatibility($pkey, $consumer) {
  *   This can be expanded in the future to allow for other types of restrictions.
  ******/
 
-function cert_build_list($type = 'cert', $consumer = '') {
+function cert_build_list($type = 'cert', $consumer = '', $selectsource = false, $addnone = false) {
 	global $config;
 
 	/* Ensure that $type is valid */
@@ -2424,11 +2515,26 @@ function cert_build_list($type = 'cert', $consumer = '') {
 	init_config_arr(array($type));
 	$list = array();
 
+	if ($addnone) {
+		if ($selectsource) {
+			$list[] = array('refid' => 'none', 'descr' => 'None');
+		} else {
+			$list['none'] = "None";
+		}
+	}
+
 	/* Create a hashed array with the certificate refid as the key and
 	 * descriptive name as the value. Exclude incompatible certificates. */
 	foreach ($config[$type] as $cert) {
-		if (cert_check_pkey_compatibility($cert['prv'], $consumer)) {
-			$list[$cert['refid']] = $cert['descr'];
+		if (empty($cert['prv']) && ($type == 'cert')) {
+			continue;
+		} else if (cert_check_pkey_compatibility($cert['prv'], $consumer)) {
+			if ($selectsource) {
+				$list[] = array('refid' => $cert['refid'],
+						'descr' => $cert['descr']);
+			} else {
+				$list[$cert['refid']] = $cert['descr'];
+			}
 		}
 	}
 

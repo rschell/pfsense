@@ -8,7 +8,7 @@
  * Copyright (c) 2009 Erik Kristensen
  * Copyright (c) 2005-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -202,6 +202,11 @@ echo "Setting up interfaces microcode...";
 setup_microcode();
 echo "done.\n";
 
+/* pcscd daemon must be started before IPsec */
+echo "Starting PC/SC Smart Card Services...";
+mwexec_bg("/usr/local/sbin/pcscd");
+echo "done.\n";
+
 if (isset($config['system']['mds_disable']) &&
     (strlen($config['system']['mds_disable']) > 0)) {
 	set_single_sysctl("hw.mds_disable" , (int)$config['system']['mds_disable']);
@@ -323,7 +328,7 @@ voucher_configure();
 system_do_shell_commands();
 
 /* start IPsec tunnels */
-$ipsec_dynamic_hosts = vpn_ipsec_configure();
+$ipsec_dynamic_hosts = ipsec_configure();
 
 /* start SNMP service */
 services_snmpd_configure();
@@ -395,7 +400,7 @@ unset($g['booting']);
 
 /* If there are ipsec dynamic hosts try again to reload the tunnels as rc.newipsecdns does */
 if ($ipsec_dynamic_hosts) {
-	vpn_ipsec_configure();
+	ipsec_configure();
 }
 if ($ipsec_dynamic_hosts || !empty($filterdns)) {
 	filter_configure();

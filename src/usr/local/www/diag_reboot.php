@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -43,6 +43,7 @@ $guitimeout = 90;	// Seconds to wait before reloading the page after reboot
 $guiretry = 20;		// Seconds to try again if $guitimeout was not long enough
 
 $pgtitle = array(gettext("Diagnostics"), gettext("Reboot"));
+$platform = system_identify_specific_platform();
 include("head.inc");
 
 if (($_SERVER['REQUEST_METHOD'] == 'POST') && (empty($_POST['override']) ||
@@ -53,8 +54,10 @@ if (($_SERVER['REQUEST_METHOD'] == 'POST') && (empty($_POST['override']) ||
 		print('<div><pre>');
 		switch ($_POST['rebootmode']) {
 			case 'FSCKReboot':
-				mwexec('/sbin/nextboot -e "pfsense.fsck.force=5"');
-				system_reboot();
+				if (php_uname('m') != 'arm') {
+					mwexec('/sbin/nextboot -e "pfsense.fsck.force=5"');
+					system_reboot();
+				}
 				break;
 			case 'Reroot':
 				if (!is_module_loaded("zfs.ko")) {
@@ -117,8 +120,12 @@ else:
 
 $form = new Form(false);
 
-$help = 'Click "Normal reboot" to reboot the system immediately, "Reboot with Filessystem Check" to reboot and run filesystem check';
-$modeslist = ['Reboot' => 'Normal reboot', 'FSCKReboot' => 'Reboot with Filesystem Check'];
+$help = 'Select "Normal reboot" to reboot the system immediately';
+$modeslist = ['Reboot' => 'Normal reboot'];
+if (php_uname('m') != 'arm') {
+        $help .= ', "Reboot with Filesystem Check" to reboot and run filesystem check';
+        $modeslist += ['FSCKReboot' => 'Reboot with Filesystem Check'];
+        }
 if (!is_module_loaded("zfs.ko")) {
 	$help .= ' or "Reroot" to stop processes, remount disks and re-run startup sequence';
 	$modeslist += ['Reroot' => 'Reroot'];

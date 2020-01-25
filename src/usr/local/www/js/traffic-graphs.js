@@ -1,7 +1,7 @@
 /*
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2016 Electric Sheep Fencing
- * Copyright (c) 2016-2018 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2016-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -330,7 +330,9 @@ function draw_graph(then) {
 					 * timers stacking up waiting for a
 					 * frame update.
 					 */
-					charts[key].update();
+					if (charts[key]) {
+						charts[key].update();
+					}
 				}
 				interfaceCount++;
 				interfaceCount = interfaceCount % interfaceSize;

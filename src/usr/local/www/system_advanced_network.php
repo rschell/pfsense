@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2008 Shrew Soft Inc
  * All rights reserved.
  *
@@ -394,16 +394,6 @@ $section->addInput(new Form_Checkbox(
 	isset($pconfig['ip_change_kill_states'])
 ))->setHelp('This option resets all states when a WAN IP Address changes instead of only '.
     'states associated with the previous IP Address.');
-
-if (get_freebsd_version() == 8) {
-	$section->addInput(new Form_Checkbox(
-		'flowtable',
-		'Enable flowtable support',
-		$pconfig['flowtable']
-	))->setHelp('Enables infrastructure for caching flows as a means of accelerating '.
-		'L3 and L2 lookups as well as providing stateful load balancing when used with '.
-		'RADIX_MPATH.');
-}
 
 $form->add($section);
 print $form;

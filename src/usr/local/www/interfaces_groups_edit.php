@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -228,7 +228,7 @@ $section->addInput(new Form_Select(
 ))->setWidth(6)->setHelp('NOTE: Rules for WAN type '.
 	'interfaces in groups do not contain the reply-to mechanism upon which '.
 	'Multi-WAN typically relies. %1$sMore Information%2$s',
-	'<a href="https://doc.pfsense.org/index.php/Interface_Groups">', '</a>');
+	'<a href="https://docs.netgate.com/pfsense/en/latest/book/interfaces/interfacetypes-groups.html">', '</a>');
 
 if (isset($id) && $a_ifgroups[$id]) {
 	$form->addGlobal(new Form_Input(

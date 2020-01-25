@@ -7,7 +7,7 @@
  * Copyright (c) 2006 Peter Allgeyer
  * Copyright (c) 2008-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally part of m0n0wall (http://m0n0.ch/wall)
@@ -481,6 +481,22 @@ function filter_configure_sync($delete_states_if_needed = true) {
 	# If we are not using bogonsv6 then we can remove any bogonsv6 table from the running pf (if the table is not there, the kill is still fine).
 	if (!is_bogonsv6_used()) {
 		$_grbg = exec("/sbin/pfctl -t bogonsv6 -T kill 2>/dev/null");
+	}
+
+	global $reserved_table_names;
+	// get aliases names from config
+	$aliasesnames = array();
+	init_config_arr(array('aliases', 'alias'));
+	foreach ($config['aliases']['alias'] as $alias) {
+		array_push($aliasesnames, $alias['name']);
+	}
+	// get aliases names from pfctl -sT
+	exec("/sbin/pfctl -sT", $pftables);
+	// compare config with pfctl aliases and reserved table names
+	$diff = array_diff($pftables, $aliasesnames, $reserved_table_names);
+	// delete unused aliases
+	foreach ($diff as $alias) {
+		$_grbg = exec("/sbin/pfctl -t " . escapeshellarg($alias) . " -T kill 2>/dev/null");
 	}
 
 	if (!platform_booting()) {
@@ -2981,6 +2997,9 @@ function filter_generate_user_rule($rule) {
 	if (!empty($rule['vlanprioset']) && ($rule['vlanprioset'] != "none")) {
 		$aline['vlanprioset'] = " set prio " . $vlanprio_values[$rule['vlanprioset']] . " ";
 	}
+	if (!empty($rule['tagged']) && isset($rule['nottagged'])) {
+		$aline['nottagged'] = " ! ";
+	}
 	if ($type == "pass") {
 		if (isset($rule['allowopts'])) {
 			$aline['allowopts'] = " allow-opts ";
@@ -3172,7 +3191,7 @@ function filter_generate_user_rule($rule) {
 		$negate_networks = " to <negate_networks> " . filter_generate_port($rule, "destination");
 		$line .= $aline['type'] . $aline['direction'] . $aline['log'] . $aline['quick'] .
 			$aline['interface'] . $aline['ipprotocol'] . $aline['prot'] . $aline['src'] . $aline['os'] .
-			$negate_networks . $aline['icmp-type'] . $aline['icmp6-type'] . $aline['tag'] . $aline['tagged'] .
+			$negate_networks . $aline['icmp-type'] . $aline['icmp6-type'] . $aline['tag'] . $aline['nottagged'] . $aline['tagged'] .
 			$aline['vlanprio'] . $aline['vlanprioset'] . $aline['dscp'] . filter_negaterule_tracker() . $aline['allowopts'] . $aline['flags'] .
 			$aline['queue'] . $aline['dnpipe'] . $aline['schedlabel'] .
 			" label \"NEGATE_ROUTE: Negate policy routing for destination\"\n";
@@ -3181,7 +3200,7 @@ function filter_generate_user_rule($rule) {
 	/* piece together the actual user rule */
 	$line .= $aline['type'] . $aline['direction'] . $aline['log'] . $aline['quick'] . $aline['interface'] .
 		$aline['reply'] . $aline['route'] . $aline['ipprotocol'] . $aline['prot'] . $aline['src'] . $aline['os'] . $aline['dst'] .
-		$aline['icmp-type'] . $aline['icmp6-type'] . $aline['tag'] . $aline['tagged'] . $aline['dscp'] . $aline['tracker'] .
+		$aline['icmp-type'] . $aline['icmp6-type'] . $aline['tag'] . $aline['nottagged'] . $aline['tagged'] . $aline['dscp'] . $aline['tracker'] .
 		$aline['vlanprio'] . $aline['vlanprioset'] . $aline['allowopts'] . $aline['flags'] . $aline['queue'] . $aline['dnpipe'] . $aline['schedlabel'];
 
 	unset($aline);

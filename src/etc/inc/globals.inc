@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -69,9 +69,8 @@ $g = array(
 	"disablehelpmenu" => false,
 	"disablehelpicon" => false,
 	"disablecrashreporter" => false,
-	"crashreporterurl" => "https://crashreporter.pfsense.org/crash_reporter.php",
 	"debug" => false,
-	"latest_config" => "19.8",
+	"latest_config" => "20.1",
 	"minimum_ram_warning" => "101",
 	"minimum_ram_warning_text" => "128 MB",
 	"wan_interface_name" => "wan",
@@ -86,7 +85,7 @@ $g = array(
 	"default_timezone" => "Etc/UTC",
 	"language" => "en_US",
 	"default_config_backup_count" => 30,
-	"default_cert_expiredays" => 28,
+	"default_cert_expiredays" => 27,
 	"default_log_entries" => 500,
 	"default_log_size" => 512000,
 	"minimumtableentries_bogonsv6" => 400000,
@@ -119,6 +118,8 @@ if (file_exists("{$g['etc_path']}/default-config-flavor")) {
 } else {
 	$g['default-config-flavor'] = '';
 }
+
+$g['openvpn_base'] = "{$g['varetc_path']}/openvpn";
 
 /* Default sysctls */
 $sysctls = array("net.inet.ip.portrange.first" => "1024",
@@ -232,6 +233,19 @@ $pf_reserved_keywords = array(
 	"maxsrcstates", "maxsrcnodes", "sourcetrack", "global", "rule", "maxsrcconn", "maxsrcconnrate", "overload",
 	"flush", "sloppy", "tagged", "tag", "ifbound", "floating", "statepolicy", "statedefaults", "route", "settos",
 	"divertto", "divertreply", "max", "min", "pptp", "pppoe", "L2TP", "OpenVPN", "IPsec");
+
+/* Reserved table names to avoid collision */
+global $reserved_table_names;
+$reserved_table_names = array(
+	"bogons",
+	"bogonsv6",
+	"negate_networks",
+	"snort2c",
+	"sshguard",
+	"tonatsubnets",
+	"virusprot",
+	"vpn_networks",
+);
 
 /* VLAN Prio values. */
 $vlanprio_values = array(

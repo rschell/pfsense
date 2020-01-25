@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -115,7 +115,7 @@ switch ($act) {
 		unset($input_errors);
 		$pconfig = $_REQUEST;
 		$revoke_list = array();
-		if (!$pconfig['crlref'] || (!$pconfig['certref'] && !$pconfig['revokeserial'])) {
+		if (!$pconfig['crlref'] || (!$pconfig['certref'] && (strlen($pconfig['revokeserial']) == 0))) {
 			pfSenseHeader("system_crlmanager.php");
 			exit;
 		}
@@ -123,11 +123,21 @@ switch ($act) {
 		if (!is_array($pconfig['certref'])) {
 			$pconfig['certref'] = array();
 		}
-		if (empty($pconfig['certref']) && empty($pconfig['revokeserial'])) {
-			$input_errors[] = gettext("Select one or more certificates or enter a serial number to revoke.");
-		}
 		if (!is_crl_internal($crl)) {
 			$input_errors[] = gettext("Cannot revoke certificates for an imported/external CRL.");
+		}
+		if (!empty($pconfig['revokeserial'])) {
+			foreach (explode(' ', $pconfig['revokeserial']) as $serial) {
+				$vserial = cert_validate_serial($serial, true, true);
+				if ($vserial != null) {
+					$revoke_list[] = $vserial;
+				} else {
+					$input_errors[] = gettext("Invalid serial in list (Must be ASN.1 integer compatible decimal or hex string).");
+				}
+			}
+		}
+		if (empty($pconfig['certref']) && empty($revoke_list)) {
+			$input_errors[] = gettext("Select one or more certificates or enter a serial number to revoke.");
 		}
 		foreach ($pconfig['certref'] as $rcert) {
 			$cert = lookup_cert($rcert);
@@ -137,17 +147,6 @@ switch ($act) {
 				$input_errors[] = gettext("CA mismatch between the Certificate and CRL. Unable to Revoke.");
 			}
 		}
-		foreach (explode(' ', $pconfig['revokeserial']) as $serial) {
-			if (empty($serial)) {
-				continue;
-			}
-			$vserial = cert_validate_serial($serial, true, true);
-			if ($vserial != null) {
-				$revoke_list[] = $vserial;
-			} else {
-				$input_errors[] = gettext("Invalid serial in list (Must be ASN.1 integer compatible decimal or hex string).");
-			}
-		}
 		if (!$input_errors) {
 			$reason = (empty($pconfig['crlreason'])) ? 0 : $pconfig['crlreason'];
 			foreach ($revoke_list as $cert) {
@@ -155,7 +154,7 @@ switch ($act) {
 			}
 			// refresh IPsec and OpenVPN CRLs
 			openvpn_refresh_crls();
-			vpn_ipsec_configure();
+			ipsec_configure();
 			write_config("Revoked certificate(s) in CRL {$crl['descr']}.");
 			pfSenseHeader("system_crlmanager.php");
 			exit;
@@ -186,7 +185,7 @@ switch ($act) {
 			$class = "success";
 			// refresh IPsec and OpenVPN CRLs
 			openvpn_refresh_crls();
-			vpn_ipsec_configure();
+			ipsec_configure();
 			write_config($savemsg);
 		} else {
 			$savemsg = sprintf(gettext('Failed to delete Certificate %1$s from CRL %2$s.'), $certname, $crlname);
@@ -230,7 +229,7 @@ if ($_POST['save']) {
 		$input_errors[] = gettext("Lifetime is longer than the maximum allowed value. Use a shorter lifetime.");
 	}
 
-	if (!empty($pconfig['serial']) && !cert_validate_serial($pconfig['serial'])) {
+	if ((strlen($pconfig['serial']) > 0) && !cert_validate_serial($pconfig['serial'])) {
 		$input_errors[] = gettext("Please enter a valid integer serial number.");
 	}
 
@@ -268,7 +267,7 @@ if ($_POST['save']) {
 		write_config("Saved CRL {$crl['descr']}");
 		// refresh IPsec and OpenVPN CRLs
 		openvpn_refresh_crls();
-		vpn_ipsec_configure();
+		ipsec_configure();
 		pfSenseHeader("system_crlmanager.php");
 	}
 }
@@ -371,7 +370,7 @@ if ($act == "new" || $act == gettext("Save")) {
 
 	$section->addInput(new Form_StaticText(
 		'Certificate Authority',
-		$crlca['descr'],
+		$crlca['descr']
 	));
 
 	if (!isset($id)) {
@@ -508,7 +507,7 @@ if ($act == "new" || $act == gettext("Save")) {
 		foreach ($crl['cert'] as $i => $cert):
 			$name = empty($cert['descr']) ? gettext('Revoked by Serial') : htmlspecialchars($cert['descr']);
 			$serial = crl_get_entry_serial($cert);
-			if (empty($serial)) {
+			if (strlen($serial) == 0) {
 				$serial = gettext("Invalid");
 			} ?>
 					<tr>

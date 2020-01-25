@@ -5,7 +5,7 @@
 # part of pfSense (https://www.pfsense.org)
 # Copyright (c) 2004-2013 BSD Perimeter
 # Copyright (c) 2013-2016 Electric Sheep Fencing
-# Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+# Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
 # All rights reserved.
 #
 # FreeSBIE portions of the code
@@ -577,11 +577,6 @@ clone_to_staging_area() {
 
 	tar -C ${PRODUCT_SRC} -c -f - . | \
 		tar -C ${STAGE_CHROOT_DIR} -x -p -f -
-
-	if [ "${PRODUCT_NAME}" != "pfSense" ]; then
-		mv ${STAGE_CHROOT_DIR}/usr/local/sbin/pfSense-upgrade \
-			${STAGE_CHROOT_DIR}/usr/local/sbin/${PRODUCT_NAME}-upgrade
-	fi
 
 	mkdir -p ${STAGE_CHROOT_DIR}/etc/mtree
 	mtree -Pcp ${STAGE_CHROOT_DIR}/var > ${STAGE_CHROOT_DIR}/etc/mtree/var.dist
@@ -1546,6 +1541,7 @@ poudriere_rename_ports() {
 		local _pdir=$(dirname ${d})
 		local _pname=$(echo $(basename ${d}) | sed "s,pfSense,${PRODUCT_NAME},")
 		local _plist=""
+		local _pdescr=""
 
 		if [ -e ${_pdir}/${_pname} ]; then
 			rm -rf ${_pdir}/${_pname}
@@ -1557,11 +1553,14 @@ poudriere_rename_ports() {
 			_plist=${_pdir}/${_pname}/pkg-plist
 		fi
 
+		if [ -f ${_pdir}/${_pname}/pkg-descr ]; then
+			_pdescr=${_pdir}/${_pname}/pkg-descr
+		fi
+
 		sed -i '' -e "s,pfSense,${PRODUCT_NAME},g" \
 			  -e "s,https://www.pfsense.org,${PRODUCT_URL},g" \
 			  -e "/^MAINTAINER=/ s,^.*$,MAINTAINER=	${PRODUCT_EMAIL}," \
-			${_pdir}/${_pname}/Makefile \
-			${_pdir}/${_pname}/pkg-descr ${_plist}
+			${_pdir}/${_pname}/Makefile ${_pdescr} ${_plist}
 
 		# PHP module is special
 		if echo "${_pname}" | grep -q "^php[0-9]*-${PRODUCT_NAME}-module"; then
@@ -1569,19 +1568,21 @@ poudriere_rename_ports() {
 			sed -i '' -e "s,PHP_PFSENSE,PHP_${_product_capital},g" \
 				  -e "s,PFSENSE_SHARED_LIBADD,${_product_capital}_SHARED_LIBADD,g" \
 				  -e "s,pfSense,${PRODUCT_NAME},g" \
-				  -e "s,${PRODUCT_NAME}\.c,pfSense.c,g" \
+				  -e "s,pfSense.c,${PRODUCT_NAME}\.c,g" \
 				${_pdir}/${_pname}/files/config.m4
 
 			sed -i '' -e "s,COMPILE_DL_PFSENSE,COMPILE_DL_${_product_capital}," \
 				  -e "s,pfSense_module_entry,${PRODUCT_NAME}_module_entry,g" \
+				  -e "s,php_pfSense.h,php_${PRODUCT_NAME}\.h,g" \
 				  -e "/ZEND_GET_MODULE/ s,pfSense,${PRODUCT_NAME}," \
 				  -e "/PHP_PFSENSE_WORLD_EXTNAME/ s,pfSense,${PRODUCT_NAME}," \
 				${_pdir}/${_pname}/files/pfSense.c \
+				${_pdir}/${_pname}/files/dummynet.c \
 				${_pdir}/${_pname}/files/php_pfSense.h
 		fi
 
 		if [ -d ${_pdir}/${_pname}/files ]; then
-			for fd in $(find ${_pdir}/${_pname}/files -type d -name '*pfSense*'); do
+			for fd in $(find ${_pdir}/${_pname}/files -name '*pfSense*'); do
 				local _fddir=$(dirname ${fd})
 				local _fdname=$(echo $(basename ${fd}) | sed "s,pfSense,${PRODUCT_NAME},")
 
@@ -1673,6 +1674,11 @@ poudriere_init() {
 		echo ">>> ERROR: POUDRIERE_PORTS_GIT_URL is not defined"
 		print_error_pfS
 	fi
+
+	# PARALLEL_JOBS us ncpu / 4 for best performance
+	local _parallel_jobs=$(sysctl -qn hw.ncpu)
+	_parallel_jobs=$((_parallel_jobs / 4))
+
 	echo ">>> Creating poudriere.conf" | tee -a ${LOGFILE}
 	cat <<EOF >/usr/local/etc/poudriere.conf
 ZPOOL=${ZFS_TANK}
@@ -1690,7 +1696,7 @@ COMMIT_PACKAGES_ON_FAILURE=no
 KEEP_OLD_PACKAGES=yes
 KEEP_OLD_PACKAGES_COUNT=5
 ALLOW_MAKE_JOBS=yes
-PARALLEL_JOBS=8
+PARALLEL_JOBS=${_parallel_jobs}
 EOF
 
 	if pkg info -e ccache; then
@@ -1714,7 +1720,7 @@ EOF
 
 		if poudriere jail -i -j "${jail_name}" >/dev/null 2>&1; then
 			echo ">>> Poudriere jail ${jail_name} already exists, deleting it..." | tee -a ${LOGFILE}
-			poudriere jail -d -j "${jail_name}" >/dev/null 2>&1
+			poudriere jail -d -j "${jail_name}"
 		fi
 	done
 

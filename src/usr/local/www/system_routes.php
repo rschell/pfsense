@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -67,7 +67,7 @@ if ($_POST['apply']) {
 }
 
 function delete_static_route($id) {
-	global $config, $a_routes, $changedesc_prefix;
+	global $config, $a_routes, $changedesc_prefix, $a_gateways;
 
 	if (!isset($a_routes[$id])) {
 		return;
@@ -92,7 +92,8 @@ function delete_static_route($id) {
 
 	foreach ($targets as $tgt) {
 		$family = (is_subnetv6($tgt) ? "-inet6" : "-inet");
-		mwexec("/sbin/route delete {$family} " . escapeshellarg($tgt));
+		$gateway = $a_gateways[$a_routes[$id]['gateway']]['gateway'];
+		mwexec("/sbin/route delete {$family} " . escapeshellarg($tgt) . " " . escapeshellarg($gateway));
 	}
 
 	unset($targets);

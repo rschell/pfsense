@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -152,8 +152,8 @@ $section->addPassword(new Form_Input(
 
 $section->addInput(new Form_Checkbox(
 	'verifysslpeer',
-	'Verify SSL Peer',
-	'Verify SSL Peer',
+	'Verify SSL/TLS Peer',
+	'Verify SSL/TLS Peer',
 	$pconfig['verifysslpeer']
 ));
 

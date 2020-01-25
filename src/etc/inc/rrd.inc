@@ -6,7 +6,7 @@
  * Copyright (c) 2010 Seth Mos <seth.mos@dds.nl>
  * Copyright (c) 2010-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -394,7 +394,7 @@ function enable_rrd_graphing() {
 				$rrdupdatesh .= " sleep 0.2\n";
 				$rrdupdatesh .= " echo \"quit\"\n";
 				$rrdupdatesh .= "}\n";
-				$rrdupdatesh .= "OVPN=`list_current_users | nc -U {$g['varetc_path']}/openvpn/server{$vpnid}.sock | awk -F\",\" '/^CLIENT_LIST/ {print \$2}' | wc -l | awk '{print $1}'`\n";
+				$rrdupdatesh .= "OVPN=`list_current_users | /usr/bin/nc -U {$g['openvpn_base']}/server{$vpnid}/sock | /usr/bin/awk -F\",\" '/^CLIENT_LIST/ {print \$2}' | /usr/bin/wc -l | /usr/bin/awk '{print $1}'`\n";
 				$rrdupdatesh .= "$rrdtool update $rrddbpath$ifname$vpnusers N:\${OVPN}\n";
 			}
 

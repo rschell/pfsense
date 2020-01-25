@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -46,7 +46,7 @@ $a_phase2 = &$config['ipsec']['phase2'];
 
 
 if ($_POST['apply']) {
-	$ipsec_dynamic_hosts = vpn_ipsec_configure();
+	$ipsec_dynamic_hosts = ipsec_configure();
 	/* reload the filter in the background */
 	$retval = 0;
 	$retval |= filter_configure();
@@ -178,7 +178,7 @@ if ($_POST['apply']) {
 		if (isset($a_phase1[$togglebtn]['disabled'])) {
 			unset($a_phase1[$togglebtn]['disabled']);
 		} else {
-			if (ipsec_vti($a_phase1[$togglebtn])) {
+			if (ipsec_vti($a_phase1[$togglebtn], false, false)) {
 				$input_errors[] = gettext("Cannot disable a Phase 1 with a child Phase 2 while the interface is assigned. Remove the interface assignment before disabling this P2.");
 			} else {
 				$a_phase1[$togglebtn]['disabled'] = true;
@@ -197,7 +197,8 @@ if ($_POST['apply']) {
 	} else if (isset($delbtn)) {
 		/* remove static route if interface is not WAN */
 		if ($a_phase1[$delbtn]['interface'] <> "wan") {
-			mwexec("/sbin/route delete -host {$a_phase1[$delbtn]['remote-gateway']}");
+			$rgateway = exec("/sbin/route -n get {$a_phase1[$delbtn]['remote-gateway']} | /usr/bin/awk '/gateway:/ {print $2;}'");
+			mwexec("/sbin/route delete -host {$a_phase1[$delbtn]['remote-gateway']} " . escapeshellarg($rgateway));
 		}
 
 		/* remove all phase2 entries that match the ikeid */

@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2008 Shrew Soft Inc
  * All rights reserved.
  *
@@ -785,7 +785,9 @@ events.push(function() {
 		} else if (value == 'vti') {
 			hideClass('opt_localid', false);
 			hideClass('opt_natid', true);
-			$('#localid_type').val('network');
+			hideClass('opt_remoteid', false);
+			$('#localid_type').val('address');
+			disableInput('localid_type', true);
 			typesel_change_local(30);
 			$('#remoteid_type').val('address');
 			disableInput('remoteid_type', true);

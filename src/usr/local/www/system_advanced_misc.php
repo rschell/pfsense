@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2008 Shrew Soft Inc
  * All rights reserved.
  *
@@ -398,13 +398,12 @@ $group->add(new Form_Checkbox(
 	'Use sticky connections',
 	'Use sticky connections',
 	$pconfig['lb_use_sticky']
-))->setHelp('Successive connections will be redirected to the servers in a '.
-	'round-robin manner with connections from the same source being sent to the '.
-	'same web server. This "sticky connection" will exist as long as there are '.
+))->setHelp('Successive connections will be redirected via gateways in a '.
+	'round-robin manner with connections from the same source being sent via the '.
+	'same gateway. This "sticky connection" will exist as long as there are '.
 	'states that refer to this connection. Once the states expire, so will the '.
 	'sticky connection. Further connections from that host will be redirected '.
-	'to the next web server in the round robin. Changing this option will '.
-	'restart the Load Balancing service.');
+	'via the next gateway in the round robin.');
 
 $group->add(new Form_Input(
 	'srctrack',

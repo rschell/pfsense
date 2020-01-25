@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -270,7 +270,7 @@ if ($_POST) {
 				if ((!empty($this_dnsgw)) && ($this_dnsgw != 'none') && (!empty($this_dnsserver))) {
 					$gatewayip = lookup_gateway_ip_by_name($this_dnsgw);
 					$inet6 = is_ipaddrv6($gatewayip) ? '-inet6 ' : '';
-					mwexec("/sbin/route -q delete -host {$inet6}{$this_dnsserver}");
+					mwexec("/sbin/route -q delete -host {$inet6}{$this_dnsserver} " . escapeshellarg($gatewayip));
 				}
 			}
 		}

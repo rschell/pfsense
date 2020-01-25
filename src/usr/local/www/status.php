@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://neon1.net/m0n0wall)
@@ -74,7 +74,7 @@ $filtered_tags = array(
 	'radius_secret', 'redis_password', 'redis_passwordagain', 'rocommunity',
 	'secret', 'shared_key', 'tls', 'tlspskidentity', 'tlspskfile',
 	'varclientpasswordinput', 'varclientsharedsecret', 'varsyncpassword',
-	'varusersmotpinitsecret', 'varusersmotppin'
+	'varusersmotpinitsecret', 'varusersmotppin', 'pkcs11pin'
 );
 
 if ($_POST['submit'] == "DOWNLOAD" && file_exists($output_file)) {
@@ -310,6 +310,7 @@ defCmdT("Firewall-pftop Speed", "/usr/local/sbin/pftop -w 150 -a -b -v speed");
 defCmdT("Firewall-IPFW Rules for Captive Portal", "/sbin/ipfw show");
 defCmdT("Firewall-IPFW Limiter Info", "/sbin/ipfw pipe show");
 defCmdT("Firewall-IPFW Queue Info", "/sbin/ipfw queue show");
+defCmdT("Firewall-IPFW Tables", "/sbin/ipfw table all list");
 
 /* Configuration Files */
 defCmdT("Disk-Contents of var run", "/bin/ls /var/run");
@@ -318,9 +319,14 @@ defCmdT("config.xml", "dumpconfigxml");
 defCmdT("DNS-Resolution Configuration", "/bin/cat /etc/resolv.conf");
 defCmdT("DHCP-IPv4 Configuration", "/bin/cat /var/dhcpd/etc/dhcpd.conf");
 defCmdT("DHCP-IPv6-Configuration", "/bin/cat /var/dhcpd/etc/dhcpdv6.conf");
-defCmdT("IPsec-strongSwan Configuration", "/bin/cat /var/etc/ipsec/strongswan.conf | /usr/bin/sed 's/[[:blank:]]secret = .*//'");
-defCmdT("IPsec-Configuration", "/bin/cat /var/etc/ipsec/ipsec.conf");
-defCmdT("IPsec-Status", "/usr/local/sbin/ipsec statusall");
+defCmdT("IPsec-strongSwan Configuration", '/usr/bin/sed "s/\([[:blank:]]secret = \).*/\1<redacted>/" /var/etc/ipsec/strongswan.conf');
+defCmdT("IPsec-Configuration", '/usr/bin/sed "s/\([[:blank:]]secret = \).*/\1<redacted>/" /var/etc/ipsec/swanctl.conf');
+defCmdT("IPsec-Status-Statistics", "/usr/local/sbin/swanctl --stats --pretty");
+defCmdT("IPsec-Status-Connections", "/usr/local/sbin/swanctl --list-conns");
+defCmdT("IPsec-Status-Active SAs", "/usr/local/sbin/swanctl --list-sas");
+defCmdT("IPsec-Status-Policies", "/usr/local/sbin/swanctl --list-pols");
+defCmdT("IPsec-Status-Certificates", "/usr/local/sbin/swanctl --list-certs --utc");
+defCmdT("IPsec-Status-Pools", "/usr/local/sbin/swanctl --list-pools --leases");
 defCmdT("IPsec-SPD", "/sbin/setkey -DP");
 defCmdT("IPsec-SAD", "/sbin/setkey -D");
 if (file_exists("/cf/conf/upgrade_log.txt")) {

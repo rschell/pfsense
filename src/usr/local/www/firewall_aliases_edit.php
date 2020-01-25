@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -119,6 +119,12 @@ if ($_POST['save']) {
 } else {
 	// Set the original name on edit (or add, when this will be blank)
 	$origname = $pconfig['name'];
+}
+
+if ($_REQUEST['exportaliases']) {
+	$expdata = str_replace(' ',"\n",$a_aliases[$id]['address']);
+	$expdata .= "\n";
+	send_user_download('data', $expdata, "{$_POST['origname']}.txt");
 }
 
 $tab = $_REQUEST['tab'];
@@ -740,6 +746,15 @@ while ($counter < count($addresses)) {
 
 	$section->add($group);
 	$counter++;
+}
+
+if ((isset($id) && $a_aliases[$id]) && !preg_match("/url/i", $pconfig['type'])) {
+	$form->addGlobal(new Form_Button(
+		'exportaliases',
+		'Export to file',
+		null,
+		'fa-download'
+	))->addClass('btn-primary');
 }
 
 $form->addGlobal(new Form_Button(

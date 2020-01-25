@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2010-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,6 +50,10 @@ function get_disks() {
 	$disks_array = array();
 	$disks_s = explode(" ", get_single_sysctl("kern.disks"));
 	foreach ($disks_s as $disk) {
+		/* Ignore the flash devices (ARM). */
+		if (strstr($disk, "flash")) {
+			continue;
+		}
 		if (trim($disk)) {
 			$disks_array[] = $disk;
 		}

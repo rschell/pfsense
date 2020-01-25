@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -152,8 +152,8 @@ $count = 100;//default number of packets to capture
 $max_display_size = 50*1024*1024; // 50MB limit on GUI capture display. See https://redmine.pfsense.org/issues/9239
 
 $fams = array('ip', 'ip6');
-$protos = array('icmp', 'icmp6', 'tcp', 'udp', 'arp', 'carp', 'esp', 'pfsync',
-		        '!icmp', '!icmp6', '!tcp', '!udp', '!arp', '!carp', '!esp', '!pfsync');
+$protos = array('icmp', 'icmp6', 'tcp', 'udp', 'arp', 'carp', 'esp', 'pfsync', 'ospf',
+		        '!icmp', '!icmp6', '!tcp', '!udp', '!arp', '!carp', '!esp', '!pfsync', '!ospf');
 
 $input_errors = array();
 
@@ -201,8 +201,8 @@ if ($_POST) {
 		if ($fam == "ip6" && $proto == "icmp") {
 			$input_errors[] = gettext("IPv6 with ICMP is not valid.");
 		}
-		if ($fam == "ip6" && $proto =="arp") {
-			$input_errors[] = gettext("IPv6 with ARP is not valid.");
+		if ($proto =="arp") {
+			$input_errors[] = gettext("Selecting an Address Family for ARP is not valid.");
 		}
 	}
 
@@ -322,7 +322,9 @@ $protocollist = array(
 	'pfsync' => 'pfsync',
 	'!pfsync' => $excl . ' pfsync',
 	'esp' => 'ESP',
-	'!esp' => $excl . ' ESP'
+	'!esp' => $excl . ' ESP',
+	'ospf' => 'OSPF',
+	'!ospf' => $excl . ' OSPF'
 );
 
 include("head.inc");
@@ -512,7 +514,20 @@ if ($do_tcpdump) :
 	}
 
 	if (in_array($proto, $protos)) {
-		$matches[] = fixup_not(str_replace('carp', 'proto 112', $proto));
+		switch (ltrim($proto, '!')) {
+			case 'ospf':
+				$proto = str_replace('ospf', 'proto ospf', $proto);
+				break;
+			case 'carp':
+				$proto = str_replace('carp', 'proto 112', $proto);
+				break;
+			case 'pfsync':
+				$proto = str_replace('pfsync', 'proto pfsync', $proto);
+				break;
+			default:
+				break;
+		}
+		$matches[] = fixup_not($proto);
 	}
 
 	if ($port != "") {
@@ -533,10 +548,13 @@ if ($do_tcpdump) :
 
 	if ($action == gettext("Start")) {
 		$matchstr = implode($matches, " and ");
-
-		print_info_box(gettext('Packet capture is running'), 'info');
-
 		$cmd = "/usr/sbin/tcpdump -i {$selectedif} {$disablepromiscuous} {$searchcount} -s {$snaplen} -w {$fp}{$fn} " . escapeshellarg($matchstr);
+		print_info_box(gettext('Packet capture is running'), 'info');
+		?>
+		<div class="infoblock">
+		<? print_info_box(gettext('Command line') . ': ' . htmlspecialchars($cmd), 'info', false); ?>
+		</div>
+		<?php
 		mwexec_bg ($cmd);
 	} else {
 ?>
@@ -546,7 +564,7 @@ if ($do_tcpdump) :
 	<div class="panel-body">
 		<div class="form-group">
 <?php
-		if ($proto == "carp") {
+		if ($_POST['proto'] == "carp") {
 			$iscarp = "-T carp";
 		} else {
 			$iscarp = "";
@@ -569,11 +587,13 @@ if ($do_tcpdump) :
 		}
 
 		print('<textarea class="form-control" rows="20" style="font-size: 13px; font-family: consolas,monaco,roboto mono,liberation mono,courier;">');
-		if (filesize($fp.$fn) > $max_display_size)
+		if (file_exists($fp.$fn) && (filesize($fp.$fn) > $max_display_size)) {
 			print(gettext("Packet capture file is too large to display in the GUI.") .
 			    "\n" .
 			    gettext("Download the file, or view it in the console or ssh shell."));
-		elseif ($detail == 'none') {
+		} elseif (!file_exists($fp.$fn)) {
+			print(gettext("No capture file to display."));
+		} elseif ($detail == 'none') {
 			print(gettext("Select a detail level to view the contents of the packet capture."));
 		} else {
 			system("/usr/sbin/tcpdump {$disabledns} {$detail_args} {$iscarp} -r {$fp}{$fn}");

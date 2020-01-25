@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -101,6 +101,7 @@ function is_aoadv_used($rule_config) {
 	    (isset($rule_config['disablereplyto'])) ||
 	    ($rule_config['tag'] != "") ||
 	    ($rule_config['tagged'] != "") ||
+	    (isset($rule_config['nottagged'])) ||
 	    ($rule_config['max'] != "") ||
 	    ($rule_config['max-src-nodes'] != "") ||
 	    ($rule_config['max-src-conn'] != "") ||
@@ -273,6 +274,9 @@ if (isset($id) && $a_filter[$id]) {
 	}
 	if (isset($a_filter[$id]['disablereplyto'])) {
 		$pconfig['disablereplyto'] = true;
+	}
+	if (isset($a_filter[$id]['nottagged'])) {
+		$pconfig['nottagged'] = true;
 	}
 
 	/* advanced */
@@ -515,6 +519,15 @@ if ($_POST['save']) {
 	}
 
 	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
+
+	if ((isset($_POST['srcnot']) && ($_POST['srctype'] == 'any')) ||
+	    (isset($_POST['dstnot']) && ($_POST['dsttype'] == 'any'))) {
+		$input_errors[] = gettext("Invert match cannot be selected with 'any'.");
+	}
+
+	if (isset($_POST['nottagged']) && empty($_POST['tagged'])) {
+		$input_errors[] = gettext("Invert tagged match cannot be selected without any tags.");
+	}
 
 	if (!$_POST['srcbeginport']) {
 		$_POST['srcbeginport'] = 0;
@@ -896,6 +909,11 @@ if ($_POST['save']) {
 			$filterent['disablereplyto'] = true;
 		} else {
 			unset($filterent['disablereplyto']);
+		}
+		if ($_POST['nottagged'] == "yes") {
+			$filterent['nottagged'] = true;
+		} else {
+			unset($filterent['nottagged']);
 		}
 		$filterent['max'] = $_POST['max'];
 		$filterent['max-src-nodes'] = $_POST['max-src-nodes'];
@@ -1367,7 +1385,7 @@ foreach (['src' => gettext('Source'), 'dst' => gettext('Destination')] as $type 
 	$group->add(new Form_Checkbox(
 		$type .'not',
 		$name .' not',
-		'Invert match.',
+		'Invert match',
 		$pconfig[$type.'not']
 	))->setWidth(2);
 
@@ -1565,12 +1583,25 @@ $section->addInput(new Form_Input(
 ))->setHelp('A packet matching this rule can be marked and this mark used to match '.
 	'on other NAT/filter rules. It is called %1$sPolicy filtering%2$s.', '<b>', '</b>');
 
-$section->addInput(new Form_Input(
-	'tagged',
-	'Tagged',
-	'text',
-	$pconfig['tagged']
-))->setHelp('A packet can be matched on a mark placed before on another rule.');
+$group = new Form_Group('Tagged');
+
+$group->add(new Form_Checkbox(
+	'nottagged',
+	'nottagged',
+	'Invert',
+	$pconfig['nottagged']
+))->setWidth(1);
+
+$group->add(new Form_Input(
+'tagged',
+'Tagged',
+'text',
+$pconfig['tagged']
+))->setWidth(4);
+
+$group->setHelp('Match a mark placed on a packet by a different rule with the Tag option. Check Invert to match packets which do not contain this tag.');
+
+$section->add($group);
 
 $section->addInput(new Form_Input(
 	'max',

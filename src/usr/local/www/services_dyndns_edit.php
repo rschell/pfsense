@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -87,8 +87,10 @@ if ($_POST['save'] || $_POST['force']) {
 	$reqdfieldsn = array(gettext("Service type"));
 
 	if ($pconfig['type'] != "custom" && $pconfig['type'] != "custom-v6") {
-		$reqdfields[] = "host";
-		$reqdfieldsn[] = gettext("Hostname");
+		if ($pconfig['type'] != "dnsomatic") {
+			$reqdfields[] = "host";
+			$reqdfieldsn[] = gettext("Hostname");
+		}
 		$reqdfields[] = "passwordfld";
 		$reqdfieldsn[] = gettext("Password");
 		$reqdfields[] = "username";
@@ -313,7 +315,8 @@ $group->setHelp('Enter the complete fully qualified domain name. Example: myhost
 			'GleSYS: Enter the record ID.%1$s' .
 			'DNSimple: Enter only the domain name.%1$s' .
 			'Namecheap, Cloudflare, GratisDNS, Hover, ClouDNS, GoDaddy, Linode: Enter the hostname and the domain separately, with the domain being the domain or subdomain zone being handled by the provider.%1$s' .
-			'Cloudflare, DigitalOcean, Linode: Enter @ as the hostname to indicate an empty field.', '<br />');
+			'DigitalOcean: Enter the record ID as the hostname and the domain separately.%1$s' .
+			'Cloudflare, Linode: Enter @ as the hostname to indicate an empty field.', '<br />');
 
 $section->add($group);
 
@@ -357,10 +360,10 @@ $section->addInput(new Form_Checkbox(
 
 $section->addInput(new Form_Checkbox(
 	'curl_ssl_verifypeer',
-	'HTTP API SSL Options',
-	'Verify SSL Certificate Trust',
+	'HTTP API SSL/TLS Options',
+	'Verify SSL/TLS Certificate Trust',
 	$pconfig['curl_ssl_verifypeer']
-))->setHelp('When set, the server must provide a valid certificate trust chain which can be verified by this firewall.');
+))->setHelp('When set, the server must provide a valid SSL/TLS certificate trust chain which can be verified by this firewall.');
 
 $section->addInput(new Form_Input(
 	'username',
@@ -386,7 +389,6 @@ $section->addPassword(new Form_Input(
 ))->setHelp('FreeDNS (freedns.afraid.org): Enter the "Authentication Token" provided by FreeDNS.%1$s' .
 			'Azure: client secret of the AD application%1$s' .
 			'DNS Made Easy: Dynamic DNS Password%1$s' .
-			'DNSimple: User account token%1$s' .
 			'DigitalOcean: Enter API token%1$s' .
 			'Route 53: Enter the Secret Access Key.%1$s' .
 			'GleSYS: Enter the API key.%1$s' .
@@ -569,7 +571,7 @@ events.push(function() {
 				hideCheckbox('wildcard', true);
 				hideCheckbox('proxied', false);
 				hideInput('zoneid', true);
-				hideInput('ttl', true);
+				hideInput('ttl', false);
 				break;
 			case "digitalocean":
 		        case "digitalocean-v6":

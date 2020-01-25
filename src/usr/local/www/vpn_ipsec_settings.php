@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -80,7 +80,6 @@ if ($_POST['save']) {
 			if ($pconfig['logging'][$cat] != $config['ipsec']['logging'][$cat]) {
 				init_config_arr(array('ipsec', 'logging'));
 				$config['ipsec']['logging'][$cat] = $pconfig['logging'][$cat];
-				vpn_update_daemon_loglevel($cat, $pconfig['logging'][$cat]);
 			}
 		}
 
@@ -178,7 +177,7 @@ if ($_POST['save']) {
 		$retval = 0;
 		$retval |= filter_configure();
 
-		vpn_ipsec_configure($needsrestart);
+		ipsec_configure($needsrestart);
 	}
 
 	// The logic value sent by $_POST for autoexcludelanaddress is opposite to
@@ -336,7 +335,7 @@ $section->addInput(new Form_Checkbox(
 	'Strict CRL Checking',
 	'Enable strict Certificate Revocation List checking',
 	$pconfig['strictcrlpolicy']
-))->setHelp('Check this to require availability of a fresh CRL for peer authentication based on RSA signatures to succeed.');
+))->setHelp('Check this to require availability of a fresh CRL for peer authentication based on certificate signatures to succeed.');
 
 $section->addInput(new Form_Checkbox(
 	'makebeforebreak',

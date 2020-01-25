@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2005 Colin Smith
  * All rights reserved.
  *
@@ -208,12 +208,14 @@ class pfsense_xmlrpc_server {
 			'crl',
 			'dhcpd',
 			'dhcpv6',
+			'dnshaper',
 			'dnsmasq',
 			'filter',
 			'ipsec',
 			'nat',
 			'openvpn',
 			'schedules',
+			'shaper',
 			'unbound',
 			'wol',
 		);
@@ -594,7 +596,7 @@ class pfsense_xmlrpc_server {
 		}
 
 		if ($old_ipsec_enabled !== ipsec_enabled()) {
-			vpn_ipsec_configure();
+			ipsec_configure();
 		}
 
 		unset($old_config);

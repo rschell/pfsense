@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -1439,15 +1439,17 @@ function interface_ipsec_vti_configure($ph1ent) {
 		/* Loop through all of the addresses for this interface and apply them as needed */
 		foreach ($addrs as $addr) {
 			// apply interface addresses
-			if (is_ipaddrv6($addr['left'])) {
+			if (is_v6($addr['left'])) {
 				$inet = "inet6";
 				$gwtype = "v6";
+				$right = '';
 			} else {
 				$inet = "inet";
 				$gwtype = "";
+				$right = escapeshellarg($addr['right']);
 			}
 
-			mwexec("/sbin/ifconfig " . escapeshellarg($ipsecif) . " {$inet} " . escapeshellarg($addr['left']) . " " . escapeshellarg($addr['right']) . $addr['alias'], false);
+			mwexec("/sbin/ifconfig " . escapeshellarg($ipsecif) . " {$inet} " . escapeshellarg($addr['left']) . " " . $right . $addr['alias'], false);
 			/* If alias is empty, this is the first address on the interface and should be used as the gateway. */
 			if (empty($addr['alias'])) {
 				file_put_contents("/tmp/{$ipsecif}_router{$gwtype}", $addr['right']);
@@ -1634,7 +1636,7 @@ function interfaces_configure() {
 		system_routing_configure();
 
 		/* reload IPsec tunnels */
-		vpn_ipsec_configure();
+		ipsec_configure();
 
 		/* restart dns servers (defering dhcpd reload) */
 		if (isset($config['dnsmasq']['enable'])) {
@@ -2555,7 +2557,7 @@ EOD;
 
 	/* Set temporary bogon (RFC 5737) IPv4 addresses to work round mpd5 IPv6CP issue causing */
 	/* random IPv6 interface identifier during boot. More details at */
-	/* https://forum.pfsense.org/index.php?topic=101967.msg570519#msg570519 */
+	/* https://forum.netgate.com/post/592474 */
 	if (platform_booting() && is_array($config['interfaces'])) {
 		$count = 0;
 		foreach ($config['interfaces'] as $tempifacename => $tempiface) {
@@ -4145,11 +4147,8 @@ function interface_track6_configure($interface = "lan", $wancfg, $linkupevent = 
 	$realif = get_real_interface($interface);
 	$linklocal = find_interface_ipv6_ll($realif, true);
 	if (!empty($linklocal) && $linklocal != "fe80::1:1%{$realif}") {
-		mwexec("/sbin/ifconfig {$realif} inet6 {$linklocal} delete");
+		mwexec("/sbin/ifconfig {$realif} inet6 fe80::1:1%{$realif} alias");
 	}
-	/* XXX: This might break for good on a carp installation using link-local as network ips */
-	/* XXX: Probably should remove? */
-	mwexec("/sbin/ifconfig {$realif} inet6 fe80::1:1%{$realif}");
 
 	$trackcfg = $config['interfaces'][$wancfg['track6-interface']];
 	if (!isset($trackcfg['enable'])) {

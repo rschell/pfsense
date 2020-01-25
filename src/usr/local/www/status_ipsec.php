@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)
@@ -45,34 +45,38 @@ if ($_REQUEST['ajax']) {
 	exit;
 }
 
-if ($_POST['act'] == 'connect') {
+if (($_POST['act'] == 'connect') || ($_POST['act'] == 'childconnect')) {
 	if (ctype_digit($_POST['ikeid'])) {
 		$ph1ent = ipsec_get_phase1($_POST['ikeid']);
 		if (!empty($ph1ent)) {
-			if (empty($ph1ent['iketype']) || $ph1ent['iketype'] == 'ikev1' || isset($ph1ent['splitconn'])) {
+			if (empty($ph1ent['iketype']) || ($ph1ent['iketype'] == 'ikev1') || isset($ph1ent['splitconn'])) {
 				$ph2entries = ipsec_get_number_of_phase2($_POST['ikeid']);
 				for ($i = 0; $i < $ph2entries; $i++) {
 					$connid = escapeshellarg("con{$_POST['ikeid']}00{$i}");
-					mwexec_bg("/usr/local/sbin/ipsec down {$connid}");
-					mwexec_bg("/usr/local/sbin/ipsec up {$connid}");
+					if ($_POST['act'] != 'childconnect') {
+						mwexec_bg("/usr/local/sbin/swanctl --terminate --child {$connid}");
+					}
+					mwexec_bg("/usr/local/sbin/swanctl --initiate --child {$connid}");
 				}
 			} else {
-				mwexec_bg("/usr/local/sbin/ipsec down con" . escapeshellarg($_POST['ikeid'] . '000'));
-				mwexec_bg("/usr/local/sbin/ipsec up con" . escapeshellarg($_POST['ikeid'] . '000'));
+				if ($_POST['act'] != 'childconnect') {
+					mwexec_bg("/usr/local/sbin/swanctl --terminate --ike con" . escapeshellarg($_POST['ikeid'] . '000'));
+				}
+				mwexec_bg("/usr/local/sbin/swanctl --initiate --child con" . escapeshellarg($_POST['ikeid'] . '000'));
 			}
 		}
 	}
 } else if ($_POST['act'] == 'ikedisconnect') {
 
 	if (!empty($_POST['ikesaid']) && ctype_digit($_POST['ikesaid'])) {
-		mwexec_bg("/usr/local/sbin/ipsec down " ."'" . escapeshellarg($_POST['ikeid']) . "[" . escapeshellarg($_POST['ikesaid']) . "]" . "'");
+		mwexec_bg("/usr/local/sbin/swanctl --terminate --ike " . escapeshellarg($_POST['ikeid']) . " --ike-id " .escapeshellarg($_POST['ikesaid']));
 	} else {
-		mwexec_bg("/usr/local/sbin/ipsec down " . escapeshellarg($_POST['ikeid']));
+		mwexec_bg("/usr/local/sbin/swanctl --terminate --ike " . escapeshellarg($_POST['ikeid']));
 	}
 } else if ($_POST['act'] == 'childdisconnect') {
 	//pull out number from id
 		if (!empty($_POST['ikesaid']) && ctype_digit($_POST['ikesaid'])) {
-			mwexec_bg("/usr/local/sbin/ipsec down " . escapeshellarg($_POST['ikeid']) . "{" . escapeshellarg($_POST['ikesaid']) . "}");
+			mwexec_bg("/usr/local/sbin/swanctl --terminate --child " . escapeshellarg($_POST['ikeid']) . " --child-id " . escapeshellarg($_POST['ikesaid']));
 		}
 }
 
@@ -124,6 +128,7 @@ function print_ipsec_body() {
 
 			print("<td>\n");
 
+			print("<b>ID:</b> ");
 			if (!empty($ikesa['local-id'])) {
 				if ($ikesa['local-id'] == '%any') {
 					print(gettext('Any identifier'));
@@ -134,14 +139,25 @@ function print_ipsec_body() {
 				print(gettext("Unknown"));
 			}
 
-			print("</td>\n");
-			print("<td>\n");
+			print("<br/>");
+			print("<b>Host:</b> ");
 
 			if (!empty($ikesa['local-host'])) {
-				print(htmlspecialchars($ikesa['local-host']));
+				$lhost = $ikesa['local-host'];
+				if (!empty($ikesa['local-port'])) {
+					if (is_ipaddrv6($ikesa['local-host'])) {
+						$lhost = "[{$lhost}]";
+					}
+					$lhost .= ":{$ikesa['local-port']}";
+				}
+				print(htmlspecialchars($lhost));
+
 			} else {
 				print(gettext("Unknown"));
 			}
+
+			print("<br/>");
+			print("<b>SPI:</b> " . htmlspecialchars( ($ikesa['initiator'] == 'yes') ? $ikesa['initiator-spi'] : $ikesa['responder-spi'] ));
 
 			/*
 			 * XXX: local-nat-t was defined by pfSense
@@ -155,6 +171,8 @@ function print_ipsec_body() {
 
 			print("</td>\n");
 			print("<td>\n");
+
+			print("<b>ID:</b> ");
 
 			$identity = "";
 			if (!empty($ikesa['remote-id'])) {
@@ -179,11 +197,18 @@ function print_ipsec_body() {
 				}
 			}
 
-			print("</td>\n");
-			print("<td>\n");
+			print("<br/>");
+			print("<b>Host:</b> ");
 
 			if (!empty($ikesa['remote-host'])) {
-				print(htmlspecialchars($ikesa['remote-host']));
+				$rhost = $ikesa['remote-host'];
+				if (!empty($ikesa['remote-port'])) {
+					if (is_ipaddrv6($ikesa['remote-host'])) {
+						$rhost = "[{$rhost}]";
+					}
+					$rhost .= ":{$ikesa['remote-port']}";
+				}
+				print(htmlspecialchars($rhost));
 			} else {
 				print(gettext("Unknown"));
 			}
@@ -196,6 +221,9 @@ function print_ipsec_body() {
 			if (isset($ikesa['remote-nat-t']) || isset($ikesa['nat-remote'])) {
 				print(" NAT-T");
 			}
+
+			print("<br/>");
+			print("<b>SPI:</b> " . htmlspecialchars( ($ikesa['initiator'] == 'yes') ? $ikesa['responder-spi'] : $ikesa['initiator-spi'] ));
 
 			print("</td>\n");
 			print("<td>\n");
@@ -210,10 +238,27 @@ function print_ipsec_body() {
 
 			print("</td>\n");
 			print("<td>\n");
-			print(htmlspecialchars($ikesa['reauth-time']) . gettext(" seconds (") . convert_seconds_to_dhms($ikesa['reauth-time']) . ")");
+			if ($ikesa['version'] == 2) {
+				print("<b>" . gettext("Rekey:") . "</b> ");
+				if (!empty($ikesa['rekey-time'])) {
+					print(htmlspecialchars($ikesa['rekey-time']) . gettext("s (") . convert_seconds_to_dhms($ikesa['rekey-time']) . ")");
+				} else {
+					print(gettext("Disabled"));
+				}
+				print("<br/>");
+			}
+			print("<b>" . gettext("Reauth:") . "</b> ");
+			if (!empty($ikesa['reauth-time'])) {
+				print(htmlspecialchars($ikesa['reauth-time']) . gettext("s (") . convert_seconds_to_dhms($ikesa['reauth-time']) . ")");
+			} else {
+				print(gettext("Disabled"));
+			}
 			print("</td>\n");
 			print("<td>\n");
 			print(htmlspecialchars($ikesa['encr-alg']));
+			if (!empty($ikesa['encr-keysize'])) {
+				print(" (" . htmlspecialchars($ikesa['encr-keysize']) . ")");
+			}
 			print("<br/>");
 			print(htmlspecialchars($ikesa['integ-alg']));
 			print("<br/>");
@@ -253,6 +298,12 @@ function print_ipsec_body() {
 				print("</a><br />\n");
 
 			}
+			if (empty($ikesa['child-sas'])) {
+				print('<br/><a href="status_ipsec.php?act=childconnect&amp;ikeid=' . substr($con_id, 0, -3) . '" class="btn btn-xs btn-success" data-toggle="tooltip" title="' . gettext("Connect Children"). '" usepost>');
+				print('<i class="fa fa-sign-in icon-embed-btn"></i>');
+				print(gettext("Connect Children"));
+				print("</a>\n");
+			}
 
 			print("</td>\n");
 			print("</tr>\n");
@@ -269,7 +320,7 @@ function print_ipsec_body() {
 				print('<div>');
 				print('<a type="button" id="btnchildsa-'. $child_key .  '" class="btn btn-sm btn-info">');
 				print('<i class="fa fa-plus-circle icon-embed-btn"></i>');
-				print(gettext('Show child SA entries'));
+				print(sprintf(gettext('Show child SA entries (%d)'), count($ikesa['child-sas'])));
 				print("</a>\n");
 				print("	</div>\n");
 
@@ -308,11 +359,12 @@ function print_ipsec_body() {
 					print("<td>\n");
 
 					if (isset($childsa['spi-in'])) {
-						print(gettext("Local: ") . htmlspecialchars($childsa['spi-in']));
+						print("<b>" . gettext("Local:") . "</b> " . htmlspecialchars($childsa['spi-in']));
 					}
 
 					if (isset($childsa['spi-out'])) {
-						print('<br/>' . gettext('Remote: ') . htmlspecialchars($childsa['spi-out']));
+						print("<br/>");
+						print("<b>" . gettext('Remote:') . "</b> " . htmlspecialchars($childsa['spi-out']));
 					}
 
 					print("</td>\n");
@@ -329,17 +381,22 @@ function print_ipsec_body() {
 					print("</td>\n");
 					print("<td>\n");
 
-					printf(gettext('Rekey: %1$s seconds (%2$s)'), htmlspecialchars($childsa['rekey-time']), convert_seconds_to_dhms($childsa['rekey-time']));
+					printf(gettext('%3$sRekey: %4$s%1$s seconds (%2$s)'), htmlspecialchars($childsa['rekey-time']), convert_seconds_to_dhms($childsa['rekey-time']), "<b>", "</b>");
 					print('<br/>');
-					printf(gettext('Life: %1$s seconds (%2$s)'), htmlspecialchars($childsa['life-time']), convert_seconds_to_dhms($childsa['life-time']));
+					printf(gettext('%3$sLife: %4$s%1$s seconds (%2$s)'), htmlspecialchars($childsa['life-time']), convert_seconds_to_dhms($childsa['life-time']), "<b>", "</b>");
 					print('<br/>');
-					printf(gettext('Install: %1$s seconds (%2$s)'), htmlspecialchars($childsa['install-time']), convert_seconds_to_dhms($childsa['install-time']));
+					printf(gettext('%3$sInstall: %4$s%1$s seconds (%2$s)'), htmlspecialchars($childsa['install-time']), convert_seconds_to_dhms($childsa['install-time']), "<b>", "</b>");
 
 
 					print("</td>\n");
 					print("<td>\n");
 
-					print(htmlspecialchars($childsa['encr-alg']) . '<br/>');
+					print(htmlspecialchars($childsa['encr-alg']));
+					if (!empty($childsa['encr-keysize'])) {
+						print(" (" . htmlspecialchars($childsa['encr-keysize']) . ")");
+					}
+					print('<br/>');
+
 					print(htmlspecialchars($childsa['integ-alg']) . '<br/>');
 
 					if (!empty($childsa['prf-alg'])) {
@@ -364,10 +421,10 @@ function print_ipsec_body() {
 					print("</td>\n");
 					print("<td>\n");
 
-					print(gettext("Bytes-In: ") . htmlspecialchars(number_format($childsa['bytes-in'])) . ' (' . htmlspecialchars(format_bytes($childsa['bytes-in'])) . ')<br/>');
-					print(gettext("Packets-In: ") . htmlspecialchars(number_format($childsa['packets-in'])) . '<br/>');
-					print(gettext("Bytes-Out: ") . htmlspecialchars(number_format($childsa['bytes-out'])) . ' (' . htmlspecialchars(format_bytes($childsa['bytes-out'])) . ')<br/>');
-					print(gettext("Packets-Out: ") . htmlspecialchars(number_format($childsa['packets-out'])) . '<br/>');
+					print("<b>" . gettext("Bytes-In:") . "</b> " . htmlspecialchars(number_format($childsa['bytes-in'])) . ' (' . htmlspecialchars(format_bytes($childsa['bytes-in'])) . ')<br/>');
+					print("<b>" . gettext("Packets-In:") . "</b> " . htmlspecialchars(number_format($childsa['packets-in'])) . '<br/>');
+					print("<b>" . gettext("Bytes-Out:") . "</b> " . htmlspecialchars(number_format($childsa['bytes-out'])) . ' (' . htmlspecialchars(format_bytes($childsa['bytes-out'])) . ')<br/>');
+					print("<b>" . gettext("Packets-Out:") . "</b> " . htmlspecialchars(number_format($childsa['packets-out'])) . '<br/>');
 
 					print("</td>\n");
 					print("<td>\n");
@@ -411,6 +468,7 @@ function print_ipsec_body() {
 			print(htmlspecialchars($ph1ent['descr']));
 			print("</td>\n");
 			print("<td>\n");
+			print("<b>ID:</b> \n");
 			list ($myid_type, $myid_data) = ipsec_find_id($ph1ent, "local");
 
 			if (empty($myid_data)) {
@@ -419,18 +477,20 @@ function print_ipsec_body() {
 				print(htmlspecialchars($myid_data));
 			}
 
-			print("</td>\n");
-			print("<td>\n");
+			print("<br/>\n");
+			print("<b>Host:</b> \n");
 			$ph1src = ipsec_get_phase1_src($ph1ent);
 
 			if (empty($ph1src)) {
 				print(gettext("Unknown"));
 			} else {
-				print(htmlspecialchars($ph1src));
+				print(htmlspecialchars(str_replace(',', ', ', $ph1src)));
 			}
 
 			print("</td>\n");
 			print("<td>\n");
+
+			print("<b>ID:</b> \n");
 
 			list ($peerid_type, $peerid_data) = ipsec_find_id($ph1ent, "peer", $rgmap);
 
@@ -439,8 +499,10 @@ function print_ipsec_body() {
 			} else {
 				print(htmlspecialchars($peerid_data));
 			}
-			print("			</td>\n");
-			print("			<td>\n");
+
+			print("<br/>\n");
+			print("<b>Host:</b> \n");
+
 			$ph1src = ipsec_get_phase1_dst($ph1ent);
 
 			if (empty($ph1src)) {
@@ -469,8 +531,7 @@ function print_ipsec_body() {
 
 				print("<td>\n");
 				print(gettext("Disconnected"));
-				print("</td>\n");
-				print("<td>\n");
+				print("<br/>\n");
 				print('<a href="status_ipsec.php?act=connect&amp;ikeid=' . $ph1ent['ikeid'] . '" class="btn btn-xs btn-success" usepost>');
 				print('<i class="fa fa-sign-in icon-embed-btn"></i>');
 				print(gettext("Connect VPN"));
@@ -507,12 +568,10 @@ display_top_tabs($tab_array);
 				<tr>
 					<th><?=gettext("IPsec ID")?></th>
 					<th><?=gettext("Description")?></th>
-					<th><?=gettext("Local ID")?></th>
-					<th><?=gettext("Local IP")?></th>
-					<th><?=gettext("Remote ID")?></th>
-					<th><?=gettext("Remote IP")?></th>
+					<th><?=gettext("Local")?></th>
+					<th><?=gettext("Remote")?></th>
 					<th><?=gettext("Role")?></th>
-					<th><?=gettext("Reauth")?></th>
+					<th><?=gettext("Timers")?></th>
 					<th><?=gettext("Algo")?></th>
 					<th><?=gettext("Status")?></th>
 					<th></th>
@@ -613,7 +672,7 @@ events.push(function() {
 	function show_childsa(said) {
 		sa_open[said] = true;
 		$('#childsa-' + said).show();
-		$('#btnchildsa-con' + said).hide();
+		$('#btnchildsa-' + said).hide();
 	}
 
 	// Populate the tbody on page load

@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2015 Warren Baker <warren@percol8.co.za>
  * Copyright (c) 2015-2016 Electric Sheep Fencing
- * Copyright (c) 2015-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2015-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally part of m0n0wall (http://m0n0.ch/wall)
@@ -246,7 +246,7 @@ EOF;
 		$tlscert_path = "{$g['unbound_chroot_path']}/sslcert.crt";
 		$tlskey_path = "{$g['unbound_chroot_path']}/sslcert.key";
 
-		// Enable SSL on the chosen or default port
+		// Enable SSL/TLS on the chosen or default port
 		$tlsconfig .= "tls-port: {$tlsport}\n";
 
 		// Lookup CA and Server Cert

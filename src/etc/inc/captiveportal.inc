@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally part of m0n0wall (http://m0n0.ch/wall)
@@ -360,8 +360,8 @@ EOD;
 		captiveportal_write_elements();
 
 		/* kill any running CP nginx instances */
-		killbypid("{$g['varrun_path']}/nginx-{$cpzone}-CaptivePortal.pid");
-		killbypid("{$g['varrun_path']}/nginx-{$cpzone}-CaptivePortal-SSL.pid");
+		killbypid("{$g['varrun_path']}/nginx-{$cpzone}-CaptivePortal.pid", 0.1);
+		killbypid("{$g['varrun_path']}/nginx-{$cpzone}-CaptivePortal-SSL.pid", 0.1);
 
 		/* start up the webserving daemon */
 		captiveportal_init_webgui_zone($cpcfg);

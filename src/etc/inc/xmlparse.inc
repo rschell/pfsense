@@ -5,7 +5,7 @@
  * part of pfSense (https://www.pfsense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2019 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2014-2020 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
  * originally part of m0n0wall (http://m0n0.ch/wall)
@@ -222,7 +222,7 @@ function is_cdata_entity($ent) {
 		'descr', 'detail', 'email', 'encryption_password', 'ldap_attr',
 		'ldap_authcn', 'ldap_basedn', 'ldap_bind',
 		'ldap_extended_query', 'login_banner', 'organization', 'state',
-		'text', 'username'
+		'text', 'username', 'password', 'auth_user', 'auth_pass'
 	);
 
 	/* Check if the entity name starts with any of the strings above */
