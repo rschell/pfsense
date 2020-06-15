@@ -1,5 +1,6 @@
 #!/bin/sh
 #
+set -e
 git pull --rebase 
 #./build.sh --setup-poudriere
 echo "***"
