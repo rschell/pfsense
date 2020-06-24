@@ -61,6 +61,8 @@ if ($allow_query && ($config['ntpd']['enable'] != 'disabled')) {
 		$line = substr($line, 1);
 		$peerinfo = preg_split("/[\s\t]+/", $line);
 
+		if ($status_char == " " && $peerinfo[1] == ".POOL.") continue;
+
 		$server['server'] = $peerinfo[0];
 		$server['refid'] = $peerinfo[1];
 		$server['stratum'] = $peerinfo[2];
